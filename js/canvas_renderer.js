@@ -8,19 +8,17 @@ class KeyCanvasRenderer {
         this.format = null;
         this.depths = [];
         this.selectedPin = 0;
-        this.sides = 1; // 1 or 2 for double-sided keys
-        this.currentSide = 'top'; // 'top' or 'bottom'
-        this.pixelsPerInch = 100; // Scale factor for drawing
-        this.margin = 40; // Margin around the drawing
+        this.sides = 1;
+        this.currentSide = 'top';
+        this.scale = 1;
+        this.offsetX = 0;
+        this.offsetY = 0;
         
         this.init();
     }
 
     init() {
-        // Set canvas dimensions
         this.resize();
-        
-        // Add resize listener
         window.addEventListener('resize', () => this.resize());
     }
 
@@ -28,7 +26,43 @@ class KeyCanvasRenderer {
         const container = this.canvas.parentElement;
         this.canvas.width = container.clientWidth;
         this.canvas.height = 400;
+        this.calculateScaleAndOffset();
         this.draw();
+    }
+
+    calculateScaleAndOffset() {
+        if (!this.format) {
+            this.scale = 1;
+            this.offsetX = this.canvas.width / 2;
+            this.offsetY = this.canvas.height / 2;
+            return;
+        }
+
+        // Calculate the total width needed in inches
+        const totalWidthInches = this.format.last_pin_inch + this.format.elbow_inch + 0.2;
+        const totalHeightInches = this.format.uncut_depth_inch * (this.sides === 2 ? 2.5 : 1.5);
+        
+        // Use most of the canvas width, leave some margin
+        const margin = 40;
+        const availableWidth = this.canvas.width - 2 * margin;
+        const availableHeight = this.canvas.height - 2 * margin;
+        
+        // Scale based on width (primary)
+        this.scale = availableWidth / totalWidthInches;
+        
+        // Make sure height also fits
+        const requiredHeight = totalHeightInches * this.scale;
+        if (requiredHeight > availableHeight) {
+            this.scale = availableHeight / totalHeightInches;
+        }
+        
+        // Center the drawing
+        this.offsetX = this.canvas.width / 2;
+        this.offsetY = this.canvas.height / 2;
+    }
+
+    toPx(inches) {
+        return inches * this.scale;
     }
 
     setFormat(format) {
@@ -36,12 +70,12 @@ class KeyCanvasRenderer {
         this.sides = format.sides || 1;
         this.depths = [];
         
-        // Initialize depths to minimum
         for (let i = 0; i < format.pin_num; i++) {
             this.depths[i] = format.min_depth_ind;
         }
         
         this.selectedPin = 0;
+        this.calculateScaleAndOffset();
         this.draw();
     }
 
@@ -71,7 +105,6 @@ class KeyCanvasRenderer {
         if (this.format && pinIndex >= 0 && pinIndex < this.depths.length) {
             const currentDepth = this.depths[pinIndex];
             if (currentDepth < this.format.max_depth_ind) {
-                // Check MACS (Maximum Adjacent Cut Specification)
                 let canIncrease = true;
                 
                 if (pinIndex > 0) {
@@ -102,7 +135,6 @@ class KeyCanvasRenderer {
         if (this.format && pinIndex >= 0 && pinIndex < this.depths.length) {
             const currentDepth = this.depths[pinIndex];
             if (currentDepth > this.format.min_depth_ind) {
-                // Check MACS (Maximum Adjacent Cut Specification)
                 let canDecrease = true;
                 
                 if (pinIndex > 0) {
@@ -137,15 +169,12 @@ class KeyCanvasRenderer {
         if (!this.format || this.depths.length === 0) {
             return '';
         }
-        
-        // For double-sided keys, we need to handle both sides
-        // For now, just return the top side
-        return this.depths.map(d => d).join('-');
+        return this.depths.join('-');
     }
 
-    // Convert inches to pixels
-    toPx(inches) {
-        return inches * this.pixelsPerInch;
+    clear() {
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     draw() {
@@ -155,221 +184,196 @@ class KeyCanvasRenderer {
         }
 
         this.clear();
+        this.calculateScaleAndOffset();
         
-        // Calculate scale and offset
-        const totalWidthInches = this.format.last_pin_inch + this.format.elbow_inch;
-        const totalHeightInches = this.format.uncut_depth_inch * (this.sides === 2 ? 2 : 1);
+        // Draw the key contour
+        this.drawKeyContour();
         
-        const scaleX = (this.canvas.width - 2 * this.margin) / this.toPx(totalWidthInches);
-        const scaleY = (this.canvas.height - 2 * this.margin) / this.toPx(totalHeightInches);
-        const scale = Math.min(scaleX, scaleY);
-        
-        const offsetX = this.canvas.width / 2;
-        const offsetY = this.canvas.height / 2;
-        
-        // Draw key contour
-        this.drawKeyContour(scale, offsetX, offsetY);
-        
-        // Draw pins
-        this.drawPins(scale, offsetX, offsetY);
+        // Draw the pins
+        this.drawPins();
         
         // Draw selected pin indicator
-        this.drawSelectedPinIndicator(scale, offsetX, offsetY);
+        this.drawSelectedPinIndicator();
         
         // Draw format name
         this.drawFormatName();
     }
 
-    clear() {
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    drawKeyContour(scale, offsetX, offsetY) {
+    drawKeyContour() {
         const ctx = this.ctx;
-        const format = this.format;
+        const f = this.format;
         
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 2 * scale;
+        // Save context
+        ctx.save();
+        
+        // Translate to center
+        ctx.translate(this.offsetX, this.offsetY);
+        
+        // Draw the key blade contour
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-
-        // Calculate key contour points
-        const points = [];
         
-        // Start at the tip
-        const tipX = this.toPx(format.first_pin_inch) * scale;
-        const tipY = this.toPx(format.uncut_depth_inch) * scale;
-        
-        // Top contour
-        let currentX = -tipX;
-        let currentY = -tipY;
-        
-        // Draw top contour
         ctx.beginPath();
         
-        // Start at the tip
-        ctx.moveTo(offsetX + currentX, offsetY + currentY);
+        // Start at the tip (bow side)
+        const tipX = -this.toPx(f.first_pin_inch);
+        const tipY = -this.toPx(f.uncut_depth_inch);
+        ctx.moveTo(tipX, tipY);
         
-        // Draw to the first pin position
-        const firstPinX = this.toPx(format.first_pin_inch) * scale;
-        ctx.lineTo(offsetX - firstPinX, offsetY - tipY);
-        
-        // Draw contour through each pin
-        for (let i = 0; i < format.pin_num; i++) {
-            const pinX = this.toPx(format.first_pin_inch + i * format.pin_increment_inch) * scale;
-            const depth = this.depths[i] || format.min_depth_ind;
-            const depthOffset = this.toPx((depth - format.min_depth_ind) * format.depth_step_inch) * scale;
+        // Draw the top contour line
+        for (let i = 0; i < f.pin_num; i++) {
+            const pinX = -this.toPx(f.first_pin_inch + i * f.pin_increment_inch);
+            const depth = this.depths[i] || f.min_depth_ind;
+            const depthOffset = this.toPx((depth - f.min_depth_ind) * f.depth_step_inch);
+            const contourY = -this.toPx(f.uncut_depth_inch) + depthOffset;
             
-            // Calculate the contour point
-            const contourY = -this.toPx(format.uncut_depth_inch) * scale + depthOffset;
-            
-            ctx.lineTo(offsetX - pinX, offsetY + contourY);
+            ctx.lineTo(pinX, contourY);
         }
         
         // Draw to the elbow
-        const elbowX = this.toPx(format.last_pin_inch + format.elbow_inch) * scale;
-        const lastPinX = this.toPx(format.last_pin_inch) * scale;
-        const lastDepth = this.depths[format.pin_num - 1] || format.min_depth_ind;
-        const lastDepthOffset = this.toPx((lastDepth - format.min_depth_ind) * format.depth_step_inch) * scale;
-        const lastContourY = -this.toPx(format.uncut_depth_inch) * scale + lastDepthOffset;
+        const elbowX = -this.toPx(f.last_pin_inch + f.elbow_inch);
+        const lastPinIndex = f.pin_num - 1;
+        const lastDepth = this.depths[lastPinIndex] || f.min_depth_ind;
+        const lastDepthOffset = this.toPx((lastDepth - f.min_depth_ind) * f.depth_step_inch);
+        const lastContourY = -this.toPx(f.uncut_depth_inch) + lastDepthOffset;
         
-        ctx.lineTo(offsetX - elbowX, offsetY + lastContourY);
+        ctx.lineTo(elbowX, lastContourY);
+        ctx.lineTo(elbowX, 0);
         
-        // Draw the elbow line
-        ctx.lineTo(offsetX - elbowX, offsetY);
-        
-        // Draw the level contour
-        ctx.lineTo(offsetX - this.toPx(format.last_pin_inch + format.elbow_inch) * scale, offsetY);
+        // Draw the level part (shank)
+        ctx.lineTo(-this.toPx(f.last_pin_inch + f.elbow_inch + 0.2), 0);
         
         // Close the top contour
         ctx.stroke();
-
+        
         // Draw bottom contour for double-sided keys
         if (this.sides === 2) {
             ctx.beginPath();
+            ctx.moveTo(tipX, -tipY);
             
-            // Start at the tip for bottom
-            const bottomTipY = this.toPx(format.uncut_depth_inch) * scale;
-            ctx.moveTo(offsetX - tipX, offsetY + bottomTipY);
-            
-            // Draw to the first pin position
-            ctx.lineTo(offsetX - firstPinX, offsetY + bottomTipY);
-            
-            // Draw contour through each pin for bottom
-            for (let i = 0; i < format.pin_num; i++) {
-                const pinX = this.toPx(format.first_pin_inch + i * format.pin_increment_inch) * scale;
-                const depth = this.depths[i] || format.min_depth_ind;
-                const depthOffset = this.toPx((depth - format.min_depth_ind) * format.depth_step_inch) * scale;
+            for (let i = 0; i < f.pin_num; i++) {
+                const pinX = -this.toPx(f.first_pin_inch + i * f.pin_increment_inch);
+                const depth = this.depths[i] || f.min_depth_ind;
+                const depthOffset = this.toPx((depth - f.min_depth_ind) * f.depth_step_inch);
+                const contourY = this.toPx(f.uncut_depth_inch) - depthOffset;
                 
-                // For bottom side, we invert the depth
-                const contourY = this.toPx(format.uncut_depth_inch) * scale - depthOffset;
-                
-                ctx.lineTo(offsetX - pinX, offsetY + contourY);
+                ctx.lineTo(pinX, contourY);
             }
             
-            // Draw to the elbow
-            ctx.lineTo(offsetX - elbowX, offsetY + bottomTipY);
-            
-            // Draw the elbow line
-            ctx.lineTo(offsetX - elbowX, offsetY);
-            
+            ctx.lineTo(elbowX, this.toPx(f.uncut_depth_inch));
+            ctx.lineTo(elbowX, 0);
             ctx.stroke();
         }
-
+        
         // Draw stop line if applicable
-        if (format.stop === 2) {
+        if (f.stop === 2) {
             ctx.beginPath();
-            ctx.moveTo(offsetX - this.toPx(format.last_pin_inch + format.elbow_inch) * scale, offsetY - this.toPx(format.uncut_depth_inch) * scale);
-            ctx.lineTo(offsetX - this.toPx(format.last_pin_inch + format.elbow_inch) * scale, offsetY + (this.sides === 2 ? this.toPx(format.uncut_depth_inch) * scale : 0));
+            ctx.moveTo(elbowX, -this.toPx(f.uncut_depth_inch));
+            ctx.lineTo(elbowX, this.sides === 2 ? this.toPx(f.uncut_depth_inch) : 0);
             ctx.stroke();
         }
+        
+        // Restore context
+        ctx.restore();
     }
 
-    drawPins(scale, offsetX, offsetY) {
+    drawPins() {
         const ctx = this.ctx;
-        const format = this.format;
+        const f = this.format;
         
-        // Draw pin lines
-        for (let i = 0; i < format.pin_num; i++) {
-            const pinX = this.toPx(format.first_pin_inch + i * format.pin_increment_inch) * scale;
-            const depth = this.depths[i] || format.min_depth_ind;
-            const depthOffset = this.toPx((depth - format.min_depth_ind) * format.depth_step_inch) * scale;
+        ctx.save();
+        ctx.translate(this.offsetX, this.offsetY);
+        
+        // Draw pin lines (the cuts)
+        for (let i = 0; i < f.pin_num; i++) {
+            const pinX = -this.toPx(f.first_pin_inch + i * f.pin_increment_inch);
+            const depth = this.depths[i] || f.min_depth_ind;
+            const depthOffset = this.toPx((depth - f.min_depth_ind) * f.depth_step_inch);
             
-            // Top pin
-            const topY = -this.toPx(format.uncut_depth_inch) * scale + depthOffset;
-            const pinHalfWidth = this.toPx(format.pin_width_inch / 2) * scale;
+            // Top pin cut
+            const topY = -this.toPx(f.uncut_depth_inch) + depthOffset;
+            const pinHalfWidth = this.toPx(f.pin_width_inch / 2);
             
+            // Draw the pin cut line (horizontal)
             ctx.strokeStyle = i === this.selectedPin ? '#ff0000' : '#0066cc';
-            ctx.lineWidth = 3 * scale;
+            ctx.lineWidth = 4;
             
             ctx.beginPath();
-            ctx.moveTo(offsetX - pinX - pinHalfWidth, offsetY + topY);
-            ctx.lineTo(offsetX - pinX + pinHalfWidth, offsetY + topY);
+            ctx.moveTo(pinX - pinHalfWidth, topY);
+            ctx.lineTo(pinX + pinHalfWidth, topY);
             ctx.stroke();
             
-            // Draw vertical line to indicate pin center
+            // Draw vertical center line
             ctx.strokeStyle = '#666666';
-            ctx.lineWidth = 1 * scale;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(offsetX - pinX, offsetY + topY - 10 * scale);
-            ctx.lineTo(offsetX - pinX, offsetY + topY);
+            ctx.moveTo(pinX, topY - this.toPx(0.1));
+            ctx.lineTo(pinX, topY);
             ctx.stroke();
             
-            // Draw depth number
-            ctx.fillStyle = '#333333';
-            ctx.font = `${12 * scale}px Arial`;
+            // Draw depth number above the pin
+            ctx.fillStyle = '#000000';
+            ctx.font = `${Math.max(10, this.toPx(0.05))}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            ctx.fillText(depth.toString(), offsetX - pinX, offsetY + topY - 15 * scale);
+            ctx.fillText(depth.toString(), pinX, topY - this.toPx(0.1));
             
-            // Bottom pin for double-sided keys
+            // Draw bottom pin for double-sided keys
             if (this.sides === 2) {
-                const bottomY = this.toPx(format.uncut_depth_inch) * scale - depthOffset;
+                const bottomY = this.toPx(f.uncut_depth_inch) - depthOffset;
                 
                 ctx.strokeStyle = i === this.selectedPin ? '#ff0000' : '#0066cc';
-                ctx.lineWidth = 3 * scale;
+                ctx.lineWidth = 4;
                 
                 ctx.beginPath();
-                ctx.moveTo(offsetX - pinX - pinHalfWidth, offsetY + bottomY);
-                ctx.lineTo(offsetX - pinX + pinHalfWidth, offsetY + bottomY);
+                ctx.moveTo(pinX - pinHalfWidth, bottomY);
+                ctx.lineTo(pinX + pinHalfWidth, bottomY);
                 ctx.stroke();
                 
-                // Draw depth number for bottom
-                ctx.fillStyle = '#333333';
-                ctx.font = `${12 * scale}px Arial`;
+                // Draw depth number below the pin
+                ctx.fillStyle = '#000000';
+                ctx.font = `${Math.max(10, this.toPx(0.05))}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
-                ctx.fillText(depth.toString(), offsetX - pinX, offsetY + bottomY + 15 * scale);
+                ctx.fillText(depth.toString(), pinX, bottomY + this.toPx(0.1));
             }
         }
+        
+        ctx.restore();
     }
 
-    drawSelectedPinIndicator(scale, offsetX, offsetY) {
+    drawSelectedPinIndicator() {
         const ctx = this.ctx;
-        const format = this.format;
+        const f = this.format;
         
-        if (this.selectedPin >= 0 && this.selectedPin < format.pin_num) {
-            const pinX = this.toPx(format.first_pin_inch + this.selectedPin * format.pin_increment_inch) * scale;
-            const depth = this.depths[this.selectedPin] || format.min_depth_ind;
-            const depthOffset = this.toPx((depth - format.min_depth_ind) * format.depth_step_inch) * scale;
-            const topY = -this.toPx(format.uncut_depth_inch) * scale + depthOffset;
+        if (this.selectedPin >= 0 && this.selectedPin < f.pin_num) {
+            ctx.save();
+            ctx.translate(this.offsetX, this.offsetY);
+            
+            const pinX = -this.toPx(f.first_pin_inch + this.selectedPin * f.pin_increment_inch);
+            const depth = this.depths[this.selectedPin] || f.min_depth_ind;
+            const depthOffset = this.toPx((depth - f.min_depth_ind) * f.depth_step_inch);
+            const topY = -this.toPx(f.uncut_depth_inch) + depthOffset;
             
             // Draw arrow above the selected pin
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.moveTo(offsetX - pinX, offsetY + topY - 30 * scale);
-            ctx.lineTo(offsetX - pinX - 10 * scale, offsetY + topY - 15 * scale);
-            ctx.lineTo(offsetX - pinX + 10 * scale, offsetY + topY - 15 * scale);
+            ctx.moveTo(pinX, topY - this.toPx(0.2));
+            ctx.lineTo(pinX - this.toPx(0.05), topY - this.toPx(0.1));
+            ctx.lineTo(pinX + this.toPx(0.05), topY - this.toPx(0.1));
             ctx.closePath();
             ctx.fill();
+            
+            ctx.restore();
         }
     }
 
     drawFormatName() {
         const ctx = this.ctx;
         if (this.format) {
-            ctx.fillStyle = '#333333';
+            ctx.fillStyle = '#000000';
             ctx.font = 'bold 16px Arial';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
