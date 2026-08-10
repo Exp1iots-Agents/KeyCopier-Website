@@ -184,6 +184,7 @@ class KeyCopierApp {
         if (this.selectedFormat) {
             this.renderer.setFormat(this.selectedFormat);
             this.depths = this.renderer.getDepths();
+            this.renderer.draw();
             this.currentPin = 0;
             this.updatePinControls();
             this.updateDepthControls();
@@ -247,14 +248,18 @@ class KeyCopierApp {
         this.measurementInterface.classList.remove('hidden');
         this.bittingResult.classList.add('hidden');
         
-        // Initialize renderer with selected format
-        this.renderer.setFormat(this.selectedFormat);
-        this.depths = this.renderer.getDepths();
-        this.currentPin = 0;
-        
-        this.updatePinControls();
-        this.updateDepthControls();
-        this.updateBittingCode();
+        // Force canvas resize now that it's visible
+        setTimeout(() => {
+            this.renderer.resize();
+            // Initialize renderer with selected format
+            this.renderer.setFormat(this.selectedFormat);
+            this.depths = this.renderer.getDepths();
+            this.currentPin = 0;
+            
+            this.updatePinControls();
+            this.updateDepthControls();
+            this.updateBittingCode();
+        }, 100);
     }
 
     showFormatSelection() {
