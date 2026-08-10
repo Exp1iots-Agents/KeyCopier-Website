@@ -177,7 +177,7 @@ class KeyCanvasRenderer {
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         
-        ctx.beginPath();
+        this.ctx.beginPath();
         
         // Start at the tip
         const tipX = -f.first_pin_inch * scale;
@@ -220,7 +220,7 @@ class KeyCanvasRenderer {
             this.ctx.strokeStyle = i === this.selectedPin ? '#ff0000' : '#0000ff';
             this.ctx.lineWidth = 6; // THICK line
             
-            this.ctx.beginPath();
+            this.this.ctx.beginPath();
             this.ctx.moveTo(pinX - pinHalfWidth, pinY);
             this.ctx.lineTo(pinX + pinHalfWidth, pinY);
             this.ctx.stroke();
@@ -243,7 +243,7 @@ class KeyCanvasRenderer {
             // Draw a circle around the selected pin
             this.ctx.strokeStyle = '#ff0000';
             this.ctx.lineWidth = 3;
-            this.ctx.beginPath();
+            this.this.ctx.beginPath();
             this.ctx.arc(pinX, pinY, 15, 0, Math.PI * 2);
             this.ctx.stroke();
         }
@@ -252,7 +252,7 @@ class KeyCanvasRenderer {
         if (this.sides === 2) {
             this.ctx.strokeStyle = '#000000';
             this.ctx.lineWidth = 3;
-            this.ctx.beginPath();
+            this.this.ctx.beginPath();
             this.ctx.moveTo(tipX, -tipY);
             
             for (let i = 0; i < f.pin_num; i++) {
@@ -279,7 +279,7 @@ class KeyCanvasRenderer {
                 this.ctx.strokeStyle = i === this.selectedPin ? '#ff0000' : '#0000ff';
                 this.ctx.lineWidth = 6;
                 
-                this.ctx.beginPath();
+                this.this.ctx.beginPath();
                 this.ctx.moveTo(pinX - pinHalfWidth, pinY);
                 this.ctx.lineTo(pinX + pinHalfWidth, pinY);
                 this.ctx.stroke();
