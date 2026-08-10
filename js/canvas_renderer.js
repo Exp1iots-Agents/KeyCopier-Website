@@ -135,7 +135,7 @@ class KeyCanvasRenderer {
     }
 
     clear() {
-        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillStyle = '#f8f9fa';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
