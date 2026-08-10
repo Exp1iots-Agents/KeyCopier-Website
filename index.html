@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeyCopier Web - Measure Key Bitting Patterns</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KeyCopier Web</h1>
+            <p class="subtitle">Measure key bitting patterns using your screen</p>
+        </header>
+
+        <main>
+            <!-- Key Format Selection -->
+            <section id="format-selection" class="section">
+                <h2>Select Key Format</h2>
+                <div class="selection-controls">
+                    <div class="dropdown-group">
+                        <label for="manufacturer-select">Manufacturer:</label>
+                        <select id="manufacturer-select" class="dropdown">
+                            <option value="">-- Select Manufacturer --</option>
+                        </select>
+                    </div>
+                    <div class="dropdown-group">
+                        <label for="format-select">Format:</label>
+                        <select id="format-select" class="dropdown" disabled>
+                            <option value="">-- Select Format --</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="start-measure-btn" class="btn btn-primary" disabled>Start Measuring</button>
+            </section>
+
+            <!-- Measurement Interface -->
+            <section id="measurement-interface" class="section hidden">
+                <h2>Measure Your Key</h2>
+                <div class="instructions">
+                    <ol>
+                        <li>Place your key on top of the screen.</li>
+                        <li>Align it with the contour below.</li>
+                        <li>Adjust each pin's depth until they match your key's cuts.</li>
+                        <li>Tip: Close one eye for better alignment.</li>
+                    </ol>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="key-canvas"></canvas>
+                    <div id="canvas-overlay"></div>
+                </div>
+
+                <div class="controls">
+                    <div class="pin-controls">
+                        <div class="pin-sliders"></div>
+                    </div>
+                    <div class="navigation">
+                        <button id="prev-pin-btn" class="btn btn-secondary" disabled>← Prev Pin</button>
+                        <span id="pin-indicator" class="pin-indicator">Pin 1</span>
+                        <button id="next-pin-btn" class="btn btn-secondary" disabled>Next Pin →</button>
+                    </div>
+                    <div class="depth-controls">
+                        <button id="decrease-depth-btn" class="btn btn-secondary">- Decrease Depth</button>
+                        <span id="depth-indicator" class="depth-indicator">Depth: 1</span>
+                        <button id="increase-depth-btn" class="btn btn-secondary">+ Increase Depth</button>
+                    </div>
+                </div>
+
+                <div class="bitting-result hidden">
+                    <h3>Bitting Code</h3>
+                    <div id="bitting-code" class="code-display"></div>
+                    <div class="export-options">
+                        <button id="copy-btn" class="btn btn-primary">Copy to Clipboard</button>
+                        <button id="export-json-btn" class="btn btn-secondary">Export as JSON</button>
+                        <button id="export-text-btn" class="btn btn-secondary">Export as Text</button>
+                        <button id="export-stl-btn" class="btn btn-secondary">Export as STL</button>
+                    </div>
+                </div>
+
+                <button id="back-to-selection-btn" class="btn btn-secondary">Back to Selection</button>
+            </section>
+
+            <!-- Double-Sided Keys Toggle -->
+            <div id="double-sided-toggle" class="hidden">
+                <label>
+                    <input type="checkbox" id="double-sided-checkbox"> 
+                    <span>Double-Sided Key</span>
+                </label>
+                <select id="side-select" class="dropdown hidden">
+                    <option value="top">Top Side</option>
+                    <option value="bottom">Bottom Side</option>
+                </select>
+            </div>
+        </main>
+
+        <footer>
+            <p>Based on <a href="https://github.com/zinongli/KeyCopier" target="_blank">KeyCopier for Flipper Zero</a> by @Torron</p>
+            <p>Web port by VibeCode</p>
+        </footer>
+    </div>
+
+    <script src="js/key_profiles.js"></script>
+    <script src="js/canvas_renderer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
